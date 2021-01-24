@@ -25,7 +25,7 @@ exports.signup = catchAsync(async (req, res, next) => {
         data: {
             user: newUser
         }
-    })
+    });
 });
 
 exports.login = catchAsync (async (req, res, next) => {
@@ -62,7 +62,7 @@ exports.protect = catchAsync(async (req, res, next) => {
         return next(new AppError('You are not logged in! Please log in to get access', 401));
     }
     // 2) verifiy token
-    const decoded = await promisify(jwt.verify(token, process.env.JWT_SECRET));
+    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
     // 3) check if user still exists
     // what if the user change the password after token is issued..
     // what if the user is deleted, but the token is still valid...
@@ -71,7 +71,7 @@ exports.protect = catchAsync(async (req, res, next) => {
         return next(new AppError('The user belonging to this token does no longer exist.', 401));
     }
     // 4) check if user changed password after the token was issued
-    if (freshUser.changedPassword(decoded.iat)){
+    if (freshUser.changedPasswordAfter(decoded.iat)){
         return next(new AppError('User recently changed password! Please log in again.', 401));
     }
 
@@ -79,3 +79,15 @@ exports.protect = catchAsync(async (req, res, next) => {
     req.user = freshUser;
     next();
 });
+
+// verify if a certain user is allowed to access resourses.
+exports.restrictTo = (...roles) => {
+    return (req, res, next) => {
+        console.log(req.user.role);
+        // Restrict to roles ['admin', 'lead-guide'], role ='user' does not
+        if (!roles.includes(req.user.role)) {
+            return next(new AppError('You do not have permission to perform this action', 403));
+        }
+        next();
+    }
+}
